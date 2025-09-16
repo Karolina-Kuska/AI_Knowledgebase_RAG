@@ -1,3 +1,4 @@
+# src/ingest/sql_loader.py
 import sqlalchemy as sa
 import pyodbc
 from urllib.parse import quote_plus
@@ -25,26 +26,31 @@ def get_engine():
     conn_str = "mssql+pyodbc:///?odbc_connect=" + quote_plus(odbc_str)
     return sa.create_engine(conn_str, fast_executemany=True)
 
+def fetch_articles_since(dt_iso: str | None) -> Iterable[Dict[str, Any]]:
+    """
+    Pobiera rekordy z widoku; jeżeli dt_iso podane, zwraca tylko nowsze.
+    Kolumny aliasujemy na stałe nazwy (CreatedAt/UpdatedAt), niezależnie od case w bazie.
+    """
+    cond = "WHERE Content IS NOT NULL AND LEN(Content) > 0"
+    if dt_iso:
+        cond += " AND UpdatedAt > CONVERT(datetime2, :wm)"
 
-def fetch_articles(limit: int | None = None) -> Iterable[Dict[str, Any]]:
-    """
-    Pobiera artykuły z widoku dbo.ArticleMetadataView
-    Kolumny: Id, Title, Content, Url, CategoryName, ProductName, ProductGroupName
-    """
-    top = f"TOP ({limit})" if limit else ""
     sql = f"""
-        SELECT {top}
-            Id,
-            Title,
-            Content,
-            Url,
-            CategoryName,
-            ProductName,
-            ProductGroupName
-        FROM dbo.ArticleMetadataView
-        WHERE Content IS NOT NULL AND LEN(Content) > 0;
+      SELECT
+        Id,
+        Title,
+        Content,
+        Url,
+        CategoryName,
+        ProductName,
+        ProductGroupName,
+        CreatedAt   AS CreatedAt,
+        UpdatedAt   AS UpdatedAt
+      FROM dbo.ArticleMetadataView
+      {cond}
+      ORDER BY UpdatedAt ASC
     """
-    engine = get_engine()
-    with engine.connect() as conn:
-        for row in conn.execute(sa.text(sql)):
+    with get_engine().connect() as c:
+        params = {"wm": dt_iso} if dt_iso else {}
+        for row in c.execute(sa.text(sql), params):
             yield dict(row._mapping)
