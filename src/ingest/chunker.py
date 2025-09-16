@@ -1,4 +1,4 @@
-# src/ingest/chunker.py
+
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 from typing import List, Dict, Any
@@ -11,7 +11,6 @@ def to_documents(rows: List[Dict[str, Any]]) -> List[Document]:
     docs: List[Document] = []
     for r in rows:
         text = f"{r.get('Title','')}\n\n{r.get('Content','')}"
-        # Bezpieczne rzutowanie na str (ISO)
         created_at = r.get("CreatedAt")
         updated_at = r.get("UpdatedAt")
         meta = {
