@@ -1,0 +1,25 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+
+# LangChain + OpenAI
+langchain
+langchain-openai
+openai
+
+# Vector DB lokalnie
+chromadb
+
+# Azure SQL
+sqlalchemy
+pyodbc
+
+# Inne
+tqdm
+httpx
+
+# Testy / lint (opcjonalnie)
+pytest
+ruff
