@@ -1,13 +1,16 @@
-from langchain_chroma import Chroma
-
-from src.rag.provider import get_embeddings
+from langchain_community.vectorstores import Chroma
+from langchain_openai import AzureOpenAIEmbeddings
 from src.utils.settings import settings
-import os
 
 def get_chroma():
-    os.makedirs(settings.CHROMA_DIR, exist_ok=True)
+    embeddings = AzureOpenAIEmbeddings(
+        azure_deployment=settings.AZURE_OPENAI_EMBED_DEPLOYMENT,
+        openai_api_version=settings.AZURE_OPENAI_API_VERSION,
+        azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+        api_key=settings.AZURE_OPENAI_API_KEY,
+    )
     return Chroma(
-        embedding_function=get_embeddings(),
-        persist_directory=settings.CHROMA_DIR,  
+        persist_directory="chroma_db",
         collection_name="kb_articles",
+        embedding_function=embeddings  
     )
