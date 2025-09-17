@@ -1,16 +1,27 @@
-
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
+from src.rag.synonyms import expand as expand_synonyms
 from typing import List, Dict, Any
 import hashlib
 
 def content_hash(text: str) -> str:
     return hashlib.md5(text.encode("utf-8")).hexdigest()
 
+def _alias_line(meta: dict) -> str:
+    parts = []
+    for key in ("title", "category", "product"):
+        v = meta.get(key)
+        if v:
+            alts = expand_synonyms(v, title_hint=v)
+            alts = [a for a in alts if len(a.split()) <= 5]
+            parts.extend(alts[:8])
+    if not parts:
+        return ""
+    return "\n\nAliasy / słowa kluczowe: " + ", ".join(sorted(set(parts)))
+
 def to_documents(rows: List[Dict[str, Any]]) -> List[Document]:
     docs: List[Document] = []
     for r in rows:
-        text = f"{r.get('Title','')}\n\n{r.get('Content','')}"
         created_at = r.get("CreatedAt")
         updated_at = r.get("UpdatedAt")
         meta = {
@@ -23,6 +34,10 @@ def to_documents(rows: List[Dict[str, Any]]) -> List[Document]:
             "created_at": str(created_at) if created_at is not None else None,
             "updated_at": str(updated_at) if updated_at is not None else None,
         }
+        alias = _alias_line(meta)
+        text = f"{r.get('Title','')}\n\n{r.get('Content','')}"
+        if alias:
+            text += "\n\n" + alias
         docs.append(Document(page_content=text, metadata=meta))
     return docs
 
