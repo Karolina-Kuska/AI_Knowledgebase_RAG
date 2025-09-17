@@ -30,14 +30,19 @@ def answer_question(question: str) -> Dict[str, Any]:
         fallback = get_local_llm()
         if not fallback:
             raise
-        text = fallback.invoke(prompt).content  # opcjonalny fallback
+        text = fallback.invoke(prompt).content
 
-    sources = [
-        {
+    seen = set()
+    sources = []
+    for d in docs:
+        key = (d.metadata.get("source") or "", d.metadata.get("title") or "")
+        if key in seen:
+            continue
+        seen.add(key)
+        sources.append({
             "title": d.metadata.get("title"),
             "source": d.metadata.get("source"),
             "preview": d.page_content[:300],
-        }
-        for d in docs
-    ]
+        })
+
     return {"answer": text, "sources": sources}
