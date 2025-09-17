@@ -1,25 +1,26 @@
+# --- Web API ---
 fastapi
 uvicorn[standard]
 pydantic
 pydantic-settings
 python-dotenv
+httpx         
 
-# LangChain + OpenAI
+# --- LangChain + Azure OpenAI ---
 langchain
-langchain-openai
-openai
+langchain-openai      
+langchain-community   
 
-# Vector DB lokalnie
+# --- Vector DB (local Chroma) ---
 chromadb
 
-# Azure SQL
+# --- Database (Azure SQL) ---
 sqlalchemy
 pyodbc
 
-# Inne
-tqdm
-httpx
+# --- Utilities ---
+tqdm                # progress bars for ingest
 
-# Testy / lint (opcjonalnie)
+# --- Dev / Test ---
 pytest
 ruff
