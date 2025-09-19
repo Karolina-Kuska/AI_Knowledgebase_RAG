@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import os
+from fastapi import FastAPI, Header, HTTPException, Depends
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import uvicorn
@@ -10,9 +12,20 @@ from src.rag.chain_chat import chat_once
 from src.rag.history import clear_history
 
 load_dotenv()
+
 app = FastAPI(title="AI Knowledgebase RAG")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+API_KEY = os.getenv("API_KEY")
 
-
+def verify_key(x_api_key: str = Header(None)):
+    if API_KEY and x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 class Ask(BaseModel):
     question: str
     category: str | None = None
@@ -50,7 +63,7 @@ class ChatReq(BaseModel):
     message: str
 
 @app.post("/chat")
-def chat(req: ChatReq):
+def chat(req: ChatReq, _: None = Depends(verify_key)):
     return chat_once(req.session_id, req.message)
 
 
@@ -69,3 +82,5 @@ def healthz():
 
 if __name__ == "__main__":
     uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=True)
+    
+    

@@ -1,0 +1,181 @@
+﻿@page "/chat"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+@using WebApp.Chat.Client.Services
+@inject SessionService Session
+@inject ChatApiClient Api
+
+<div class="chat-wrap">
+    <header class="chat-header">
+        <div class="title">
+            <span class="dot"></span>
+            <strong>ERP RAG Chat</strong>
+            @if (!string.IsNullOrEmpty(Engine))
+            {
+                <span class="engine">Silnik: @Engine</span>
+            }
+        </div>
+        <div class="actions">
+            <button class="ghost" @onclick="ResetAsync" title="Wyczyść i zacznij nową rozmowę" disabled="@Busy">Od nowa</button>
+        </div>
+    </header>
+
+    <div class="chat-box" @ref="ChatBoxRef">
+        @if (Messages.Count == 0)
+        {
+            <div class="system-hint">
+                👋 Cześć! Zacznij rozmowę pytając np.:<br />
+                <code>jak zainstalować KIP</code>, <code>skróty klawiszowe Kadry i Płace</code>, <code>jak wystawić fakturę w eBiuro</code>, <code>co to jest SSO?</code>
+            </div>
+        }
+
+        @foreach (var m in Messages)
+        {
+            <div class="msg @(m.Who)">
+                <div class="bubble">
+                    @m.Text
+                    @if (m.Sources?.Count > 0)
+                    {
+                        <details class="sources">
+                            <summary>Źródła (@m.Sources.Count)</summary>
+                            <ul>
+                                @foreach (var s in m.Sources)
+                                {
+                                    <li>
+                                        <a href="@s.source" target="_blank">@s.title</a>
+                                        <div class="prev">@s.preview</div>
+                                    </li>
+                                }
+                            </ul>
+                        </details>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (Busy)
+        {
+            <div class="msg assistant">
+                <div class="bubble typing">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="input-row">
+        <input @bind="Current" @bind:event="oninput" placeholder="Napisz wiadomość…" @onkeydown="OnKey" disabled="@Busy" />
+        <button class="primary" @onclick="SendAsync" disabled="@(!CanSend)">Wyślij</button>
+    </div>
+</div>
+
+@code {
+    record Msg(string Who, string Text, List<SourceItem>? Sources);
+
+    List<Msg> Messages = new();
+    string Current = "";
+    string SessionId = "";
+    string? Engine;
+    bool Busy = false;
+    ElementReference ChatBoxRef;
+
+    bool CanSend => !Busy && !string.IsNullOrWhiteSpace(Current);
+
+    protected override async Task OnInitializedAsync()
+    {
+        SessionId = await Session.GetOrCreateSessionAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await ScrollToBottom();
+    }
+
+    async Task SendAsync()
+    {
+        if (!CanSend) return;
+        var question = Current.Trim();
+        Current = "";
+        Busy = true;
+        Messages.Add(new Msg("user", question, null));
+        StateHasChanged();
+
+        try
+        {
+            var resp = await Api.SendAsync(SessionId, question);
+            Engine = resp?.engine ?? Engine;
+            Messages.Add(new Msg("assistant", resp?.answer ?? "Brak odpowiedzi", resp?.sources ?? new()));
+            await Session.TouchAsync(); // odśwież TTL sesji po udanej odpowiedzi
+        }
+        catch (Exception ex)
+        {
+            Messages.Add(new Msg("assistant", $"Błąd: {ex.Message}", null));
+        }
+        finally
+        {
+            Busy = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    async Task ResetAsync()
+    {
+        try { await Api.ClearAsync(SessionId); } catch { /* ignoruj */ }
+        await Session.ResetAsync();
+        SessionId = await Session.GetOrCreateSessionAsync();
+        Engine = null;
+        Messages.Clear();
+        StateHasChanged();
+    }
+
+    async Task OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && CanSend) await SendAsync();
+    }
+
+    async Task ScrollToBottom()
+    {
+        // prosta sztuczka – krótka pauza + focus, aby przescrollować
+        await Task.Delay(10);
+        try { await ChatBoxRef.FocusAsync(); } catch { }
+    }
+}
+
+<style>
+    .chat-wrap{max-width:900px;margin:24px auto;padding:0 16px}
+    .chat-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .title{display:flex;align-items:center;gap:10px;font-size:20px}
+    .title .dot{width:10px;height:10px;border-radius:50%;background:#22c55e;display:inline-block}
+    .engine{font-size:12px;color:#475569;background:#e2e8f0;border-radius:999px;padding:3px 8px}
+    .actions .ghost{background:transparent;border:1px solid #e2e8f0;color:#0f172a;border-radius:10px;padding:8px 12px;cursor:pointer}
+    .actions .ghost:disabled{opacity:.6;cursor:not-allowed}
+    .chat-box{height:62vh;overflow:auto;border:1px solid #e5e7eb;border-radius:14px;background:#fff;padding:14px}
+    .system-hint{color:#475569;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:12px;margin-bottom:10px}
+    .msg{display:flex;margin:10px 0}
+    .msg.user{justify-content:flex-end}
+    .bubble{max-width:75%;padding:10px 12px;border-radius:12px;white-space:pre-wrap}
+    .msg.user .bubble{background:#e0f2fe}
+    .msg.assistant .bubble{background:#f1f5f9}
+    .typing span{display:inline-block;width:6px;height:6px;margin:0 2px;background:#94a3b8;border-radius:50%;animation:blink 1.2s infinite}
+    .typing span:nth-child(2){animation-delay:.2s}
+    .typing span:nth-child(3){animation-delay:.4s}
+
+    @@keyframes blink {
+        0%, 80%, 100% {
+            opacity: .2
+        }
+
+        40% {
+            opacity: 1
+        }
+    }
+    .sources{margin-top:8px}
+    .sources summary{cursor:pointer;color:#334155}
+    .sources ul{margin:6px 0 0 0;padding-left:16px}
+    .sources .prev{color:#475569;font-size:12px;margin-top:2px}
+    .input-row{display:flex;gap:10px;margin-top:12px}
+    .input-row input{flex:1;padding:12px;border-radius:12px;border:1px solid #e5e7eb}
+    .primary{background:#2563eb;color:#fff;border:none;border-radius:12px;padding:12px 16px;cursor:pointer}
+    .primary:disabled{opacity:.6;cursor:not-allowed}
+</style>

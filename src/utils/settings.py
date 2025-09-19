@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     OLLAMA_HOST: str | None = None
     OLLAMA_MODEL: str = "gemma3:4b"
     OLLAMA_EMBED_MODEL: str | None = None
+    
+    API_KEY: str | None = None
     class Config:
         env_file = ".env"
-
+    
 settings = Settings()
