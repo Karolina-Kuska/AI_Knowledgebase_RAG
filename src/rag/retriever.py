@@ -20,7 +20,6 @@ def retrieve(
     for q in queries:
         docs = vs.similarity_search(q, k=max(k, 20))
         for d in docs:
-            # proste filtry meta
             if category and d.metadata.get("category") != category:
                 continue
             if product and d.metadata.get("product") != product:

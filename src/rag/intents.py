@@ -1,6 +1,6 @@
 import re
 from typing import Literal, TypedDict, Optional, List
-from src.rag.provider import get_llm
+from src.rag.provider import get_llm, get_local_llm
 
 Intent = Literal["GREETING","DATETIME","FOLLOW_UP","VALID","GIBBERISH","TEST"]
 _POLITE = re.compile(r"\b(cześć|dzień dobry|hej|witam|dziękuję|dzieki)\b", re.I)
@@ -22,12 +22,20 @@ def _heuristics(msg: str, has_history: bool) -> Optional[Classification]:
         return {"intent":"FOLLOW_UP","reason":"follow-up regex"}
     return None
 
-def classify(msg: str, history: List[tuple[str,str]]) -> Classification:
+def _bind_zero_temp(llm_obj):
+    if not hasattr(llm_obj, "bind"):
+        return llm_obj
+    if llm_obj.__class__.__module__.startswith("langchain_ollama"):
+        return llm_obj.bind(options={"temperature": 0})
+    return llm_obj.bind(temperature=0)
+
+def classify(msg: str, history: List[tuple[str, str]]) -> Classification:
     hx = history or []
     hhit = _heuristics(msg, has_history=bool(hx))
-    if hhit: return hhit
-  
-    llm = get_llm()
+    if hhit:
+        return hhit
+
+    llm = _bind_zero_temp(get_llm())
     prompt = (
         "Zwróć tylko jedno słowo jako etykietę intencji z listy: "
         "GREETING, DATETIME, FOLLOW_UP, VALID, GIBBERISH, TEST.\n"
@@ -42,7 +50,15 @@ def classify(msg: str, history: List[tuple[str,str]]) -> Classification:
         f"Pytanie: {msg}\n"
         "Etykieta:"
     )
-    resp = llm.bind(temperature=0).invoke(prompt).content.strip().upper()
+    try:
+        resp = llm.invoke(prompt).content.strip().upper()
+    except Exception:
+        local = get_local_llm()
+        if not local:
+            return {"intent": "VALID", "reason": "llm_error_no_fallback"}
+        llm = _bind_zero_temp(local)
+        resp = llm.invoke(prompt).content.strip().upper()
+
     intent = resp.split()[0] if resp else "VALID"
     if intent not in {"GREETING","DATETIME","FOLLOW_UP","VALID","GIBBERISH","TEST"}:
         intent = "VALID"
