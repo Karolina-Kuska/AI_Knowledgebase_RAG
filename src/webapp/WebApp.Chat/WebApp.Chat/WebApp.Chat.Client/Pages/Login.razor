@@ -1,0 +1,316 @@
+﻿@page "/login"
+@using Microsoft.AspNetCore.Components.Authorization
+@using WebApp.Chat.Client.Providers
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@inject NavigationManager Navigation
+@inject IHttpClientFactory ClientFactory
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthProvider
+
+<div class="auth-bg">
+    <div class="auth-card">
+        <div class="brand">
+            <div class="logo">💬</div>
+            <div class="titles">
+                <h1>ERP RAG</h1>
+                <p>Bezpieczne logowanie do panelu czatu</p>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Error))
+        {
+            <div class="toast error">
+                <span class="dot"></span>
+                <span>@Error</span>
+            </div>
+        }
+
+        <div class="form">
+            <label class="label">Hasło</label>
+            <div class="input-wrap">
+                <input class="input"
+                       @bind="Password"
+                       @bind:event="oninput"
+                       type="@(_show ? "text" : "password")"
+                       placeholder="••••••••"
+                       @onkeydown="OnKey" />
+                <button class="eye" type="button" @onclick="() => _show = !_show" title="@(_show ? "Ukryj" : "Pokaż")">
+                    @_eyeIcon
+                </button>
+            </div>
+
+            <button class="primary" @onclick="LoginAsync" disabled="@Busy">
+                @if (Busy)
+                {
+                    <span class="spinner"></span>
+                    <span>Logowanie…</span>
+                }
+                else
+                {
+                    <span>Zaloguj</span>
+                }
+            </button>
+        </div>
+
+        <div class="foot">
+            <span>Masz dostęp tylko dla uprawnionych użytkowników.</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    string Password = "";
+    string Error = "";
+    bool Busy = false;
+    bool _show = false;
+
+    string _eyeIcon => _show ? "🙈" : "👁️";
+
+    async Task LoginAsync()
+    {
+        if (Busy) return;
+        Error = "";
+        Busy = true;
+        try
+        {
+            var http = ClientFactory.CreateClient("AspApi");
+            var resp = await http.PostAsJsonAsync("/api/auth/login", new { password = Password });
+            if (resp.IsSuccessStatusCode)
+            {
+                var result = await resp.Content.ReadFromJsonAsync<LoginResult>();
+                if (result is null || string.IsNullOrWhiteSpace(result.token))
+                {
+                    Error = "Nieprawidłowa odpowiedź serwera.";
+                }
+                else
+                {
+                    await JS.InvokeVoidAsync("localStorage.setItem", "jwt", result.token);
+                    ((JwtAuthStateProvider)AuthProvider).MarkUserAsAuthenticated(result.token);
+                    Navigation.NavigateTo("/chat", true);
+                    return;
+                }
+            }
+            else
+            {
+                Error = "Błędne hasło!";
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Błąd połączenia: {ex.Message}";
+        }
+        finally
+        {
+            Busy = false;
+            StateHasChanged();
+        }
+    }
+
+    Task OnKey(KeyboardEventArgs e)
+        => e.Key == "Enter" && !Busy ? LoginAsync() : Task.CompletedTask;
+
+    public class LoginResult
+    {
+        public string token { get; set; } = "";
+    }
+}
+
+<style>
+    /* TŁO */
+    .auth-bg {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(1200px 600px at 80% -10%, #e0f2fe 10%, transparent 40%), radial-gradient(1200px 600px at -10% 110%, #f1f5f9 10%, transparent 40%), linear-gradient(180deg,#f8fafc 0%, #eef2f7 100%);
+        padding: 24px;
+    }
+
+    /* KARTA */
+    .auth-card {
+        width: 100%;
+        max-width: 440px;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+        box-shadow: 0 12px 40px rgba(2,6,23,.08);
+        padding: 24px 22px 20px 22px;
+    }
+
+    /* NAGŁÓWEK */
+    .brand {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 14px
+    }
+
+    .logo {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: #e0f2fe;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        box-shadow: inset 0 0 0 1px #bae6fd;
+    }
+
+    .titles h1 {
+        margin: 0;
+        font-size: 18px;
+        color: #0f172a
+    }
+
+    .titles p {
+        margin: 2px 0 0 0;
+        color: #64748b;
+        font-size: 13px
+    }
+
+    /* TOAST BŁĘDU */
+    .toast {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin: 8px 0 12px 0;
+        border: 1px solid #fee2e2;
+        background: #fef2f2;
+        color: #b91c1c;
+        font-weight: 600;
+        animation: fadein .2s ease-out;
+    }
+
+        .toast .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            display: inline-block
+        }
+
+        .toast.error {
+        }
+
+    /* FORMULARZ */
+    .form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 6px
+    }
+
+    .label {
+        color: #475569;
+        font-size: 12px
+    }
+
+    .input-wrap {
+        position: relative
+    }
+
+    .input {
+        width: 100%;
+        padding: 12px 44px 12px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        font-size: 15px;
+        transition: border .2s, box-shadow .2s;
+    }
+
+        .input:focus {
+            outline: none;
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 4px rgba(59,130,246,.15)
+        }
+
+    .eye {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 18px;
+        opacity: .7;
+        transition: opacity .2s;
+        border-radius: 8px;
+        padding: 4px 8px;
+    }
+
+        .eye:hover {
+            opacity: 1
+        }
+
+    /* PRZYCISK */
+    .primary {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        width: 100%;
+        padding: 12px 14px;
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform .02s ease, opacity .2s;
+    }
+
+        .primary:hover {
+            opacity: .95
+        }
+
+        .primary:active {
+            transform: translateY(1px)
+        }
+
+        .primary:disabled {
+            opacity: .6;
+            cursor: not-allowed
+        }
+
+    /* SPINNER */
+    .spinner {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid rgba(255,255,255,.35);
+        border-top-color: #fff;
+        display: inline-block;
+        animation: spin .7s linear infinite;
+    }
+
+    /* STOPKA */
+    .foot {
+        margin-top: 12px;
+        color: #94a3b8;
+        font-size: 12px;
+        text-align: center
+    }
+
+    /* ANIMACJE */
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg)
+        }
+    }
+
+    @@keyframes fadein {
+        from {
+            opacity: 0;
+            transform: translateY(-2px)
+        }
+
+        to {
+            opacity: 1;
+            transform: none
+        }
+    }
+</style>

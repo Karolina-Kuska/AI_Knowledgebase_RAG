@@ -1,6 +1,12 @@
-﻿@page "/chat"
+﻿ 
+@page "/chat"
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
 
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using WebApp.Chat.Client.Services
 @inject SessionService Session
 @inject ChatApiClient Api
@@ -83,6 +89,14 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (!user.Identity?.IsAuthenticated ?? true)
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
         SessionId = await Session.GetOrCreateSessionAsync();
     }
 

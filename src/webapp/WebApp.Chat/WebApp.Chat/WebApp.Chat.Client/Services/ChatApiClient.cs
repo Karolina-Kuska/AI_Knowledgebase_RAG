@@ -1,4 +1,6 @@
-﻿using System.Net.Http.Json;
+﻿using Microsoft.JSInterop;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 
 namespace WebApp.Chat.Client.Services;
 
@@ -8,20 +10,23 @@ public record ChatResponse(string answer, string intent, string? engine, List<So
 
 public class ChatApiClient
 {
-    private readonly HttpClient _http;
-    public ChatApiClient(HttpClient http) => _http = http;
+    private readonly HttpClient _fastApiClient;
+    public ChatApiClient(IHttpClientFactory factory)
+    {
+        _fastApiClient = factory.CreateClient("FastApi");
+    }
 
     public async Task<ChatResponse?> SendAsync(string sessionId, string message, CancellationToken ct = default)
     {
         var payload = new ChatRequest(sessionId, message);
-        using var resp = await _http.PostAsJsonAsync("/chat", payload, ct);
+        using var resp = await _fastApiClient.PostAsJsonAsync("/chat", payload, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<ChatResponse>(cancellationToken: ct);
     }
 
     public async Task ClearAsync(string sessionId, CancellationToken ct = default)
     {
-        using var resp = await _http.PostAsJsonAsync("/chat/clear", new { session_id = sessionId }, ct);
+        using var resp = await _fastApiClient.PostAsJsonAsync("/chat/clear", new { session_id = sessionId }, ct);
         resp.EnsureSuccessStatusCode();
     }
 }
