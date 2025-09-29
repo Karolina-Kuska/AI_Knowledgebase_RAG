@@ -1,0 +1,26 @@
+# --- Web API ---
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+httpx         
+
+# --- LangChain + Azure OpenAI ---
+langchain
+langchain-openai      
+langchain-community   
+
+# --- Vector DB (local Chroma) ---
+chromadb
+
+# --- Database (Azure SQL) ---
+sqlalchemy
+pyodbc
+
+# --- Utilities ---
+tqdm                # progress bars for ingest
+
+# --- Dev / Test ---
+pytest
+ruff
