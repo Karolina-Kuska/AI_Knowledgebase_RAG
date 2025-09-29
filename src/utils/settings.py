@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Local LLM Fallback
     OLLAMA_HOST: str | None = None
-    OLLAMA_MODEL: str = "gemma3:4b"
+    OLLAMA_MODEL: str = "phi3:mini"
     OLLAMA_EMBED_MODEL: str | None = None
     
     API_KEY: str | None = None
