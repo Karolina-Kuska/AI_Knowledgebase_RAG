@@ -18,15 +18,15 @@ public class ChatApiClient
 
     public async Task<ChatResponse?> SendAsync(string sessionId, string message, CancellationToken ct = default)
     {
-        var payload = new ChatRequest(sessionId, message);
-        using var resp = await _fastApiClient.PostAsJsonAsync("/chat", payload, ct);
+        var payload = new ChatRequest(session_id: sessionId, message: message);
+        using var resp = await _fastApiClient.PostAsJsonAsync("chat", payload, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<ChatResponse>(cancellationToken: ct);
     }
 
     public async Task ClearAsync(string sessionId, CancellationToken ct = default)
     {
-        using var resp = await _fastApiClient.PostAsJsonAsync("/chat/clear", new { session_id = sessionId }, ct);
+        using var resp = await _fastApiClient.PostAsJsonAsync("chat/clear", new { session_id = sessionId }, ct);
         resp.EnsureSuccessStatusCode();
     }
 }
