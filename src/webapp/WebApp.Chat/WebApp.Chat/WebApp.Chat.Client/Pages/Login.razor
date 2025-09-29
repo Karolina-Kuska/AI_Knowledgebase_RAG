@@ -74,7 +74,7 @@
         try
         {
             var http = ClientFactory.CreateClient("AspApi");
-            var resp = await http.PostAsJsonAsync("/api/auth/login", new { password = Password });
+            var resp = await http.PostAsJsonAsync("/aspapi/auth/login", new { username = "admin", password = Password });
             if (resp.IsSuccessStatusCode)
             {
                 var result = await resp.Content.ReadFromJsonAsync<LoginResult>();
