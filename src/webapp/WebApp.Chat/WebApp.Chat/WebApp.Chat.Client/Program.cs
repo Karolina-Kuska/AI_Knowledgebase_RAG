@@ -14,7 +14,7 @@ var aspApiBase = builder.Configuration["AspApiBaseUrl"] ?? "https://localhost:70
 
 builder.Services.AddHttpClient("FastApi", client =>
 {
-    client.BaseAddress = new Uri(fastApiBase);
+    client.BaseAddress = new Uri($"{fastApiBase.TrimEnd('/')}/");
     if (!string.IsNullOrEmpty(fastApiKey))
         client.DefaultRequestHeaders.Add("x-api-key", fastApiKey);
 });

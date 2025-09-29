@@ -9,10 +9,10 @@ using Microsoft.IdentityModel.Tokens;
 namespace WebApp.Chat.Controllers
 {
     [ApiController]
-    [Route("api/auth")]
+    [Route("aspapi/auth")]
     public class AuthController : ControllerBase
     {
-        private const string HardcodedPassword = "tajnehaslo"; // Change this!
+    
         private readonly IConfiguration _config;
 
         public AuthController(IConfiguration config)
@@ -23,12 +23,16 @@ namespace WebApp.Chat.Controllers
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginRequest req)
         {
-            if (req.password != HardcodedPassword)
-                return Unauthorized();
+          
+            var validUsername = _config["Auth:Username"];
+            var validPassword = _config["Auth:Password"];
+
+            if (req.Username != validUsername || req.Password != validPassword)
+                return Unauthorized("Invalid username or password.");
 
             var claims = new[]
             {
-                new Claim(ClaimTypes.Name, "user")
+                  new Claim(ClaimTypes.Name, req.Username)
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["JwtKey"] ?? "kkZTFQYM7icE76jKjAQd3hlr9G1Kx8ak"));
@@ -48,7 +52,8 @@ namespace WebApp.Chat.Controllers
 
         public class LoginRequest
         {
-            public string password { get; set; }
+            public string Username { get; set; } = string.Empty;
+            public string Password { get; set; } = string.Empty;
         }
     }
 }
